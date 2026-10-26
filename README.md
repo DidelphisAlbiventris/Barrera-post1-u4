@@ -25,3 +25,27 @@ innecesaria aquí: el contenido de la línea nunca cambia entre ejecuciones, as�
 los 40 bytes ya forman parte de la imagen del ejecutable que DOS carga en memoria, de modo que el arranque no ejecuta ninguna instrucción para producirlos. Con 
 RESB habría que inicializar CX, un puntero y el carácter, y ejecutar 40 iteraciones del bucle cada vez que se corre el programa. El costo de TIMES es que el .exe 
 ocupa 40 bytes más en disco, algo despreciable frente a evitar esas instrucciones.
+
+**##Parte 2**
+## Decisiones técnicas (Parte 2)
+
+### Chechkpoint Decisión 1: %rep frente a LOOP para un número de repeticiones fijo
+
+Para imprimir el separador corto tres veces, %rep es una alternativa razonable a repetir_str. Como el número de copias se conoce al escribir el programa, el 
+preprocesador puede duplicar el código antes de ensamblar y el programa no necesita contador ni salto en tiempo de ejecución. El costo es tamaño: cada expansión 
+de print_str ocupa unos 9 bytes de código máquina (PUSH, dos MOV, INT y POP), de modo que tres copias suman unos 27 bytes, un precio mínimo. Con 1000 copias 
+serían unos 9000 bytes de código, mientras que repetir_str ocupa unos 12 bytes sin importar cuántas veces se repita. Por eso repetir_str sigue siendo la opción 
+correcta cuando el número de repeticiones se lee en tiempo de ejecución, por ejemplo con leer_char: %rep necesita una constante conocida al ensamblar, y un valor 
+tecleado solo existe cuando el programa corre, así que hace falta un bucle real. El código expandido de repetir_str contiene la carga de CX y la instrucción LOOP; 
+el de bloque_decorativo no contiene ninguna de las dos, y esa ausencia es precisamente el costo cero en tiempo de ejecución de %rep.
+
+### Chechkpoint Decisión 2: ¿necesitan etiquetas locales %% las extensiones de los Pasos 7 y 8?
+
+La macro bloque_decorativo no necesita ninguna etiqueta, ni %% ni de otro tipo, porque su cuerpo es código lineal: solo repite expansiones de print_str, sin 
+saltos ni destinos de salto. Al no definir símbolos, no hay nada que pueda repetirse entre una invocación y otra. Si se modificara para que un salto condicional 
+omitiera la última copia, el salto necesitaría una etiqueta destino dentro del cuerpo de la macro. Esa etiqueta se definiría de nuevo en cada invocación, NASM 
+reportaría un símbolo duplicado, y por eso pasaría a necesitar %%, que genera un nombre único por expansión. Las etiquetas con punto de comparar_menor_o_igual 
+(.menor_o_igual y .fin_cmp2) son suficientes porque en NASM pertenecen a la etiqueta no local anterior, es decir, el nombre completo es 
+comparar_menor_o_igual.menor_o_igual, distinto de comparar_e_imprimir.son_iguales. Además, un procedimiento se define una sola vez y no se expande en cada 
+llamada, de modo que el mecanismo %%, pensado para macros que se expanden varias veces, no es necesario.
+
